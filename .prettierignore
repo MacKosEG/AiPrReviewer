@@ -1,0 +1,7 @@
+dist/
+node_modules/
+coverage/
+evals/output/
+fixtures/*.diff
+package-lock.json
+evals/.build/

@@ -1,0 +1,37 @@
+# Dogfooding: reviews this repository's own PRs with the Action from the PR branch.
+# Runs only when the GEMINI_API_KEY secret is configured (and never for fork PRs, which get no secrets).
+name: AI review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ai-review:
+    name: ai-review
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check for the Gemini key
+        id: key
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: echo "present=$([ -n "$GEMINI_API_KEY" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: AI review
+        if: steps.key.outputs.present == 'true'
+        uses: ./
+        with:
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
+          context-files: README.md

@@ -1,0 +1,72 @@
+diff --git a/src/auth/session.ts b/src/auth/session.ts
+index 9a8b7c6..1d2e3f4 100644
+--- a/src/auth/session.ts
++++ b/src/auth/session.ts
+@@ -1,24 +1,30 @@
+ export interface Session {
+   userId: string;
+   createdAt: Date;
+   expiresAt: Date;
+ }
+
+ const SESSION_TTL_MS = 30 * 60 * 1000;
+
+ export function createSession(userId: string, now = new Date()): Session {
+   return {
+     userId,
+     createdAt: now,
+     expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+   };
+ }
+
+-export function isExpired(session: Session, now = new Date()): boolean {
+-  return session.expiresAt.getTime() <= now.getTime();
++/** Returns true when the session can no longer be used. */
++export function isExpired(session: Session, now = new Date()): boolean {
++  return session.expiresAt.getTime() > now.getTime();
+ }
+
+-export function refresh(session: Session, now = new Date()): Session {
+-  return { ...session, expiresAt: new Date(now.getTime() + SESSION_TTL_MS) };
++/** Extends an active session; expired sessions must be re-created via login. */
++export function refresh(session: Session, now = new Date()): Session {
++  if (isExpired(session, now)) {
++    throw new Error('Session expired');
++  }
++  return { ...session, expiresAt: new Date(now.getTime() + SESSION_TTL_MS) };
+ }
+diff --git a/src/auth/middleware.ts b/src/auth/middleware.ts
+index 3c4d5e6..7f8a9b0 100644
+--- a/src/auth/middleware.ts
++++ b/src/auth/middleware.ts
+@@ -10,9 +10,13 @@ export function requireSession(store: SessionStore) {
+   return async (req: Request, res: Response, next: NextFunction) => {
+     const session = await store.get(req.cookies.sid);
+-    if (!session) {
++    if (!session || isExpired(session)) {
+       return res.status(401).json({ error: 'unauthenticated' });
+     }
++    // Sliding expiration: every authenticated request extends the session.
++    const refreshed = refresh(session);
++    await store.set(req.cookies.sid, refreshed);
+-    req.session = session;
++    req.session = refreshed;
+     next();
+   };
+ }
+diff --git a/test/auth/session.test.ts b/test/auth/session.test.ts
+index 0a1b2c3..4d5e6f7 100644
+--- a/test/auth/session.test.ts
++++ b/test/auth/session.test.ts
+@@ -5,4 +5,11 @@ describe('createSession', () => {
+     const s = createSession('u1', new Date('2026-01-01T00:00:00Z'));
+     expect(s.expiresAt.toISOString()).toBe('2026-01-01T00:30:00.000Z');
+   });
+ });
++
++describe('refresh', () => {
++  it('throws for an expired session', () => {
++    const s = createSession('u1', new Date('2026-01-01T00:00:00Z'));
++    expect(() => refresh(s, new Date('2026-01-01T01:00:00Z'))).toThrow('Session expired');
++  });
++});

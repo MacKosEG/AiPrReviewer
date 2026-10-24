@@ -1,0 +1,127 @@
+diff --git a/src/utils/slugify.ts b/src/utils/slugify.ts
+new file mode 100644
+index 0000000..3b18e51
+--- /dev/null
++++ b/src/utils/slugify.ts
+@@ -0,0 +1,20 @@
++/**
++ * Converts a title into a URL-safe slug, e.g. "Hello, World!" -> "hello-world".
++ * Diacritics are removed and the result is capped at `maxLength` characters.
++ */
++export function slugify(title: string, maxLength = 80): string {
++  if (maxLength <= 0) {
++    throw new RangeError('maxLength must be positive');
++  }
++  const slug = title
++    .normalize('NFKD')
++    .replace(/[̀-ͯ]/g, '')
++    .toLowerCase()
++    .replace(/[^a-z0-9]+/g, '-')
++    .replace(/^-+|-+$/g, '');
++
++  return slug.slice(0, maxLength).replace(/-+$/, '');
++}
++
++export const isSlug = (value: string): boolean => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
++
+diff --git a/src/utils/slugify.test.ts b/src/utils/slugify.test.ts
+new file mode 100644
+index 0000000..9c1d2aa
+--- /dev/null
++++ b/src/utils/slugify.test.ts
+@@ -0,0 +1,36 @@
++import { describe, expect, it } from 'vitest';
++import { isSlug, slugify } from './slugify';
++
++describe('slugify', () => {
++  it('lowercases and joins words with dashes', () => {
++    expect(slugify('Hello, World!')).toBe('hello-world');
++  });
++
++  it('removes diacritics', () => {
++    expect(slugify('Crème brûlée à la carte')).toBe('creme-brulee-a-la-carte');
++  });
++
++  it('trims leading and trailing separators', () => {
++    expect(slugify('  --Already slugged--  ')).toBe('already-slugged');
++  });
++
++  it('returns an empty string for input without letters or digits', () => {
++    expect(slugify('!!!')).toBe('');
++  });
++
++  it('caps the length without leaving a trailing dash', () => {
++    expect(slugify('one two three', 8)).toBe('one-two');
++  });
++
++  it('rejects a non-positive maxLength', () => {
++    expect(() => slugify('x', 0)).toThrow(RangeError);
++  });
++});
++
++describe('isSlug', () => {
++  it('accepts slugs and rejects other strings', () => {
++    expect(isSlug('hello-world')).toBe(true);
++    expect(isSlug('Hello World')).toBe(false);
++    expect(isSlug('trailing-')).toBe(false);
++  });
++});
+diff --git a/src/routes/articles.ts b/src/routes/articles.ts
+index 5d1f0c2..8a7e4b9 100644
+--- a/src/routes/articles.ts
++++ b/src/routes/articles.ts
+@@ -1,6 +1,7 @@
+ import { Router } from 'express';
+ import { z } from 'zod';
+ import { articlesRepo } from '../db/articles';
++import { slugify } from '../utils/slugify';
+
+ export const articles = Router();
+
+@@ -14,7 +15,13 @@ articles.post('/', async (req, res, next) => {
+     if (!parsed.success) {
+       return res.status(400).json({ errors: parsed.error.issues });
+     }
+-    const article = await articlesRepo.create(parsed.data);
++    const slug = slugify(parsed.data.title);
++    if (!slug) {
++      return res
++        .status(400)
++        .json({ errors: [{ path: ['title'], message: 'Title must contain letters or digits' }] });
++    }
++    const article = await articlesRepo.create({ ...parsed.data, slug });
+     res.status(201).json(article);
+   } catch (err) {
+     next(err);
+diff --git a/test/routes/articles.test.ts b/test/routes/articles.test.ts
+new file mode 100644
+index 0000000..d41e2c7
+--- /dev/null
++++ b/test/routes/articles.test.ts
+@@ -0,0 +1,26 @@
++import request from 'supertest';
++import { beforeEach, describe, expect, it, vi } from 'vitest';
++import { app } from '../../src/app';
++import { articlesRepo } from '../../src/db/articles';
++
++vi.mock('../../src/db/articles', () => ({
++  articlesRepo: { create: vi.fn(async (data: object) => ({ id: 1, ...data })) },
++}));
++
++beforeEach(() => vi.mocked(articlesRepo.create).mockClear());
++
++describe('POST /articles', () => {
++  it('stores the slug derived from the title', async () => {
++    const res = await request(app).post('/articles').send({ title: 'Hello, World!', body: 'Hi' });
++    expect(res.status).toBe(201);
++    expect(res.body.slug).toBe('hello-world');
++    expect(articlesRepo.create).toHaveBeenCalledWith(expect.objectContaining({ slug: 'hello-world' }));
++  });
++
++  it('rejects titles without letters or digits', async () => {
++    const res = await request(app).post('/articles').send({ title: '!!!', body: 'Hi' });
++    expect(res.status).toBe(400);
++    expect(articlesRepo.create).not.toHaveBeenCalled();
++  });
++});
++

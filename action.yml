@@ -1,0 +1,51 @@
+name: ai-pr-reviewer
+description: AI code review of a pull request with Gemini (structured output) and a hard APPROVED / NEEDS_WORK / DECLINED verdict.
+author: mackos-eg
+branding:
+  icon: check-circle
+  color: blue
+
+inputs:
+  gemini-api-key:
+    description: Google AI Studio API key for Gemini. Pass it from a secret.
+    required: true
+  github-token:
+    description: Token used to read the PR and post the review comment. Needs pull-requests:write and contents:read.
+    required: false
+    default: ${{ github.token }}
+  provider:
+    description: 'LLM provider: google (default, uses gemini-api-key) or openrouter (uses openrouter-api-key).'
+    required: false
+    default: google
+  openrouter-api-key:
+    description: OpenRouter API key; only used when provider is openrouter.
+    required: false
+    default: ''
+  model:
+    description: 'Model id. Empty = provider default (google: gemini-3.8-flash, openrouter: google/gemini-3.8-flash).'
+    required: false
+    default: ''
+  criteria-file:
+    description: Path (in the consumer repo, read from the PR base commit) to the review criteria markdown. Replaces the built-in criteria when present.
+    required: false
+    default: .github/ai-review-criteria.md
+  context-files:
+    description: Comma- or newline-separated list of extra context files (e.g. PRD.md, AGENTS.md), read from the PR base commit. Size-limited.
+    required: false
+    default: ''
+  fail-on:
+    description: 'Which verdict fails the step: DECLINED (default), NEEDS_WORK (fails on NEEDS_WORK and DECLINED) or never.'
+    required: false
+    default: DECLINED
+  max-diff-chars:
+    description: Maximum number of diff characters sent to the model. Larger diffs are truncated and the review says so.
+    required: false
+    default: '120000'
+
+outputs:
+  verdict:
+    description: 'Final verdict after policy enforcement: APPROVED, NEEDS_WORK or DECLINED.'
+
+runs:
+  using: node24
+  main: dist/index.js

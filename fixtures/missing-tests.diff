@@ -1,0 +1,74 @@
+diff --git a/src/pricing/discounts.ts b/src/pricing/discounts.ts
+new file mode 100644
+index 0000000..4f2a9c1
+--- /dev/null
++++ b/src/pricing/discounts.ts
+@@ -0,0 +1,46 @@
++export type CustomerTier = 'standard' | 'silver' | 'gold';
++
++export interface CartLine {
++  sku: string;
++  unitPriceCents: number;
++  quantity: number;
++}
++
++const TIER_DISCOUNT: Record<CustomerTier, number> = {
++  standard: 0,
++  silver: 0.05,
++  gold: 0.1,
++};
++
++/** Orders at or above this subtotal get an extra 5% off. */
++const BULK_THRESHOLD_CENTS = 50_000;
++const BULK_DISCOUNT = 0.05;
++
++/** Maximum combined discount, regardless of tier and coupons. */
++const MAX_DISCOUNT = 0.25;
++
++export function subtotalCents(lines: CartLine[]): number {
++  return lines.reduce((sum, line) => sum + line.unitPriceCents * line.quantity, 0);
++}
++
++/**
++ * Returns the discount rate (0..MAX_DISCOUNT) for a cart, combining the customer tier,
++ * the bulk discount and an optional coupon percentage.
++ */
++export function discountRate(lines: CartLine[], tier: CustomerTier, couponPercent = 0): number {
++  if (!Number.isFinite(couponPercent) || couponPercent < 0 || couponPercent > 100) {
++    throw new RangeError('couponPercent must be between 0 and 100');
++  }
++  let rate = TIER_DISCOUNT[tier];
++  if (subtotalCents(lines) >= BULK_THRESHOLD_CENTS) {
++    rate += BULK_DISCOUNT;
++  }
++  rate += couponPercent / 100;
++  return Math.min(rate, MAX_DISCOUNT);
++}
++
++export function totalCents(lines: CartLine[], tier: CustomerTier, couponPercent = 0): number {
++  const subtotal = subtotalCents(lines);
++  const rate = discountRate(lines, tier, couponPercent);
++  return Math.round(subtotal * (1 - rate));
++}
+diff --git a/src/routes/checkout.ts b/src/routes/checkout.ts
+index 2c3d4e5..6f7a8b9 100644
+--- a/src/routes/checkout.ts
++++ b/src/routes/checkout.ts
+@@ -1,5 +1,7 @@
+ import { Router } from 'express';
+ import { cartService } from '../services/cart';
++import { couponService } from '../services/coupons';
++import { totalCents } from '../pricing/discounts';
+
+ export const checkout = Router();
+
+@@ -8,7 +10,10 @@ checkout.post('/quote', async (req, res, next) => {
+   try {
+     const cart = await cartService.get(req.session.cartId);
+-    res.json({ totalCents: cart.lines.reduce((s, l) => s + l.unitPriceCents * l.quantity, 0) });
++    // Server-side lookup: only active coupons owned by this user yield a percentage (0 otherwise).
++    const couponPercent = await couponService.redeemablePercent(req.user.id, req.body.couponCode);
++    res.json({ totalCents: totalCents(cart.lines, req.user.tier, couponPercent) });
+   } catch (err) {
+     next(err);
+   }

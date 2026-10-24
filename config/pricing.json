@@ -1,0 +1,29 @@
+{
+  "$comment": "USD per 1M tokens, Gemini API paid tier (Standard), from https://ai.google.dev/gemini-api/docs/pricing, checked 2026-10-24. Output includes thinking tokens. 'until' is the last day (UTC, inclusive) a price applies; the entry without 'until' is the open-ended current price. Free-tier usage costs nothing; these are estimates. OpenRouter runs use the cost reported by OpenRouter instead.",
+  "models": {
+    "gemini-3.8-flash": {
+      "periods": [
+        { "until": "2026-12-31", "input": 0.75, "output": 3.75 },
+        { "input": 1.5, "output": 7.5 }
+      ]
+    },
+    "gemini-3.6-flash": {
+      "periods": [
+        { "until": "2026-12-31", "input": 0.75, "output": 3.75 },
+        { "input": 1.5, "output": 7.5 }
+      ]
+    },
+    "gemini-4-argon": {
+      "periods": [
+        { "until": "2026-11-30", "input": 2, "output": 10 },
+        { "input": 4, "output": 20 }
+      ]
+    },
+    "gemini-3.1-pro-preview": {
+      "longContextThreshold": 200000,
+      "periods": [{ "input": 2, "output": 12, "longContext": { "input": 4, "output": 18 } }]
+    },
+    "gemini-3.5-flash-lite": { "periods": [{ "input": 0.3, "output": 2.5 }] },
+    "gemini-3.1-flash-lite": { "periods": [{ "input": 0.25, "output": 1.5 }] }
+  }
+}
