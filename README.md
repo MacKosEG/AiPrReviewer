@@ -230,6 +230,25 @@ EVAL_MODELS=gemini-3.8-flash npm run eval -- --filter-first-n 2
 Reports are written to `evals/output/results.html` and `results.json`. `OPENROUTER_MODEL` overrides
 the OpenRouter model.
 
+### Eval results
+
+Run on 2026-10-28 (`npm run eval`, all 5 tests, no filters, concurrency 2, `--no-cache`). OpenRouter
+was skipped (no `OPENROUTER_API_KEY`). Cost is the paid-tier estimate from `config/pricing.json`.
+Time is the end-to-end latency per case.
+
+| Test            | `gemini-3.8-flash`               | `gemini-4-argon`                 |
+| --------------- | -------------------------------- | -------------------------------- |
+| `good`          | ✅ APPROVED · $0.0073 · 15.0 s   | ✅ APPROVED · $0.0109 · 8.3 s    |
+| `security`      | ✅ DECLINED · $0.0068 · 13.9 s   | ✅ DECLINED · $0.0174 · 15.3 s   |
+| `missing-tests` | ✅ NEEDS_WORK · $0.0090 · 18.9 s | ✅ NEEDS_WORK · $0.0183 · 18.4 s |
+| `logic-bug`     | ✅ DECLINED · $0.0095 · 20.1 s   | ✅ DECLINED · $0.0152 · 15.5 s   |
+| `noise-only`    | ✅ APPROVED · $0.0024 · 4.9 s    | ✅ APPROVED · $0.0055 · 16.9 s   |
+| **Total**       | **5/5 · $0.0349 · avg 14.5 s**   | **5/5 · $0.0673 · avg 14.9 s**   |
+
+Default model: `gemini-3.8-flash`. It scores the same as `gemini-4-argon` for about half the cost,
+with the same latency. Five fixtures cannot separate the two models on accuracy, so use
+`gemini-4-argon` when you need deeper reviews of large or subtle changes.
+
 ## Releasing
 
 ```bash
