@@ -1,6 +1,6 @@
 name: ai-pr-reviewer
 description: AI code review of a pull request with Gemini (structured output) and a hard APPROVED / NEEDS_WORK / DECLINED verdict.
-author: mackos-eg
+author: MacKosEG
 branding:
   icon: check-circle
   color: blue

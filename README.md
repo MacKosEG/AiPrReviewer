@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: mackos-eg/AiPrReviewer@9036ebdfafd8d40ff10abc7a365b806728b17441 # v1.0.0
+      - uses: MacKosEG/AiPrReviewer@9036ebdfafd8d40ff10abc7a365b806728b17441 # v1.0.0
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
           # model: gemini-4-argon
@@ -81,7 +81,7 @@ jobs:
 `9036ebdfafd8d40ff10abc7a365b806728b17441` is the commit of `v1.0.0`. For later releases, get the SHA of a tag with:
 
 ```bash
-git ls-remote https://github.com/mackos-eg/AiPrReviewer 'refs/tags/v1.0.0^{}' 'refs/tags/v1.0.0'
+git ls-remote https://github.com/MacKosEG/AiPrReviewer 'refs/tags/v1.0.0^{}' 'refs/tags/v1.0.0'
 ```
 
 (For an annotated tag use the `^{}` line, which is the commit; for a lightweight tag only the plain line exists.)
